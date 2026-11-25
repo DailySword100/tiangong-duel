@@ -1,4 +1,4 @@
-import {RECIPES} from './game.js?v=20261125-3';
+import {RECIPES} from './game.js?v=20261125-4';
 
 const arrow='<svg viewBox="0 0 300 32" aria-hidden="true"><path d="M12 16H275" stroke="#f5e1a5" stroke-width="3"/><path d="m270 6 24 10-24 10 5-10Z" fill="#fff3cc"/><path d="m25 16-15-9m15 9-15 9m27-9L22 7m15 9-15 9" stroke="#bb8053" stroke-width="3"/></svg>';
 const sparks=Array.from({length:12},(_,i)=>`<span class="fx-spark" style="--angle:${i*30+8}deg;--reach:${66+(i%4)*18}px;--spark-delay:${(i%3)*18}ms"><i></i></span>`).join('');

@@ -1,7 +1,8 @@
-import {Game,CARDS,RECIPES,planCraft} from './game.js?v=20261125-3';
-import {createBattleEffect} from './effects.js?v=20261125-3';
+import {Game,CARDS,RECIPES,planCraft} from './game.js?v=20261125-4';
+import {createBattleEffect} from './effects.js?v=20261125-4';
 const $=s=>document.querySelector(s);const game=new Game();let selected=new Set(),timer=null,toastTimer=null,epoch=0,lastEvent=null,discardRisk=false,shownEnd=false;
 let effectBusy=false,activeEffect=null,effectTimers=[];
+let inspectedRecipeId=null;
 const typeNames={material:'材料',process:'工序',wild:'通用'};
 const handGroups=[{type:'material',title:'材料牌',note:'兵器原料',empty:'暂无原料'},{type:'process',title:'工序牌',note:'制造技艺',empty:'可重铸换取工序'},{type:'wild',title:'通用牌',note:'灵活代材',empty:'可重铸换取边角料'}];
 const art={
@@ -23,13 +24,23 @@ function handMarkup(player,selecting){
   return `<section class="hand-group ${group.type} ${cards.length?'':'is-empty'}" data-hand-group="${group.type}" aria-label="${group.title}，${cards.length}张" style="--group-count:${Math.max(1,cards.length)}"><div class="hand-group-heading"><h3>${group.title}<b>${cards.length}</b></h3><span>${group.note}</span></div><div class="hand-group-cards">${cardHtml||`<p class="hand-group-empty">${group.empty}</p>`}</div></section>`;
  }).join('');
 }
-function recipes(){const player=game.players[0];$('#recipes').innerHTML=RECIPES.map(r=>{
+function recipes(){const player=game.players[0];
+ if(!RECIPES.some(r=>r.id===inspectedRecipeId)){
+  const ready=RECIPES.find(r=>planCraft(player.hand,r).ok);
+  inspectedRecipeId=(ready||[...RECIPES].sort((a,b)=>planCraft(player.hand,a).missing.length-planCraft(player.hand,b).missing.length)[0]).id;
+ }
+ $('#recipe-tabs').innerHTML=RECIPES.map(r=>{
+  const plan=planCraft(player.hand,r),selected=r.id===inspectedRecipeId;
+  return `<button class="recipe-tab ${selected?'is-active':''} ${plan.ok?'is-ready':''}" data-inspect="${r.id}" aria-pressed="${selected}" aria-label="查看${r.name}配方，伤害${plan.ok?plan.damage:r.damage}，${plan.ok?'材料已齐':`缺${plan.missing.length}项`}"><strong>${r.name}</strong><span><b>${plan.ok?plan.damage:r.damage}</b> 伤害</span><small>${plan.ok?'可制造':`缺${plan.missing.length}项`}</small></button>`;
+ }).join('');
+ $('#recipes').innerHTML=RECIPES.map(r=>{
  const plan=planCraft(player.hand,r), can=game.canAct(0)&&!effectBusy&&!player.crafted&&plan.ok;let wildKey=null;
  if(plan.wildUsed){const usedKeys=plan.used.map(i=>player.hand[i].key);wildKey=r.needs.find(key=>!usedKeys.includes(key)&&CARDS[key].type==='material');}
  const needs=r.needs.map(key=>{const have=player.hand.some(c=>c.key===key),sub=wildKey===key;return `<span class="ingredient ${have?'have':sub?'substitute':'missing'}" title="${sub?'边角料替代':have?'已拥有':'缺少'}">${sub?'料代·':''}${CARDS[key].name}</span>`;}).join('');
  const missing=plan.missing.map(key=>CARDS[key].name).join('、');
  const label=player.crafted?'本回合已制造':!plan.ok?`缺：${missing}`:game.phase==='overflow'?'先整理手牌':game.actor===1?'等待你的回合':'开炉制造';
- return `<article class="recipe ${can?'ready':''}" aria-label="${r.name}配方"><span class="weapon-kind">${r.kind}</span><div class="weapon-art">${svg(r.id)}</div><h3>${r.name}</h3><div class="weapon-stats"><span>伤害 <b>${plan.ok?plan.damage:r.damage}</b></span><span class="${r.risk?'risk-label':'safe-label'}">${r.risk?'炸炉 30%':'稳妥无险'}</span></div><div class="ingredients">${needs}</div><button class="make-button" data-craft="${r.id}" title="${!plan.ok?'缺少：'+missing:label}" ${can?'':'disabled'}>${label}</button></article>`;
+ const compactLabel=player.crafted?'已制造':!plan.ok?`缺${plan.missing.length}项`:game.phase==='overflow'?'先弃牌':game.actor===1?'对方回合':'开炉制造';
+ return `<article class="recipe ${can?'ready':''} ${r.id===inspectedRecipeId?'is-inspected':''}" aria-label="${r.name}配方"><span class="weapon-kind">${r.kind}</span><div class="weapon-art">${svg(r.id)}</div><h3>${r.name}</h3><div class="weapon-stats"><span>伤害 <b>${plan.ok?plan.damage:r.damage}</b></span><span class="${r.risk?'risk-label':'safe-label'}">${r.risk?'炸炉 30%':'稳妥无险'}</span></div><div class="ingredients">${needs}</div><button class="make-button" data-craft="${r.id}" aria-label="${r.name}，${label}" title="${!plan.ok?'缺少：'+missing:label}" ${can?'':'disabled'}><span class="make-label-full">${label}</span><span class="make-label-compact" aria-hidden="true">${compactLabel}</span></button></article>`;
  }).join('');}
 function render(){
  const player=game.players[0],ai=game.players[1];selected=new Set([...selected].filter(id=>player.hand.some(c=>c.id===id)));
@@ -41,21 +52,23 @@ function render(){
  animateEvent();
  $('#round').textContent=`第 ${game.round} 轮${game.round>=12?' · 炉火衰竭':''}`;$('#deck-count').textContent=game.deck.length;$('#discard-count').textContent=game.discard.length;
  $('#enemy-hand').innerHTML=ai.hand.map(()=>'<span class="card-back"></span>').join('');$('#enemy-hand').setAttribute('aria-label',`对方有${ai.hand.length}张手牌`);
+ $('#enemy-hand').setAttribute('data-count-label',`手牌 ${ai.hand.length}`);
  const statuses={player:player.crafted?'兵器已出炉':'轮到你了',ai:'掌柜思量中', 'ai-overflow':'掌柜整理库房',overflow:'请整理手牌',risk:game.actor===0?'炉火失控':'对方炸炉',over:game.winner===0?'你赢下了比试':'比试结束'};
  $('#turn-status').textContent=effectBusy?activeEffect.status:statuses[game.phase]||'比试开始';$('#turn-subtitle').textContent=game.actor===0?'筹材 · 开炉 · 制胜':'对方正在行动，请稍候';
  $('#hand-count').textContent=`${player.hand.length} / 7`;
  const selecting=game.actor===0&&['player','overflow','risk'].includes(game.phase);
  $('#hand').innerHTML=handMarkup(player,selecting);
+ $('#hand').setAttribute('data-hand-size',String(player.hand.length));
  $('#reforge').innerHTML=`熔炉重铸 <span>${player.reforged?1:0} / 1</span>`;
  const target=$('#exchange-target').value;
  $('#exchange-target').disabled=!game.canAct(0)||effectBusy||player.reforged;
  $('#reforge').disabled=!game.canAct(0)||effectBusy||player.reforged||selected.size!==1||player.hand.find(c=>selected.has(c.id))?.key===target;
  $('#end-turn').disabled=effectBusy||(!game.canAct(0)&&game.phase!=='overflow'&&!discardRisk);
  if(game.phase==='overflow'){
-  const n=player.hand.length-7;$('#selection-hint').textContent=`手牌超限：请选择 ${n} 张弃牌（已选 ${selected.size} 张）`;$('#end-turn').innerHTML=`确认弃牌 <span>弃置 ${n} 张后继续行动</span>`;$('#end-turn').disabled=selected.size!==n;
- }else if(discardRisk){$('#selection-hint').textContent=`请选择 2 张手牌止损（已选 ${selected.size} 张）`;$('#end-turn').innerHTML='弃牌止损 <span>弃 2 张，免受炸炉伤害</span>';$('#end-turn').disabled=selected.size!==2;}
- else{$('#selection-hint').textContent=selected.size?`已选 ${selected.size} 张手牌`:'按类别分区 · 点击选牌，左右滑动查看';$('#end-turn').innerHTML='结束回合 <span>交由隔壁掌柜行动</span>';}
- $('#craft-hint').textContent=player.crafted?'本回合制造机会已用完':'每回合限制造一次 · 成功后立即攻击';
+  const n=player.hand.length-7;$('#selection-hint').textContent=`超限弃${n}张 · 已选${selected.size}张`;$('#end-turn').innerHTML=`确认弃牌 <span>弃置 ${n} 张后继续行动</span>`;$('#end-turn').disabled=selected.size!==n;
+ }else if(discardRisk){$('#selection-hint').textContent=`止损弃2张 · 已选${selected.size}张`;$('#end-turn').innerHTML='弃牌止损 <span>弃 2 张，免受炸炉伤害</span>';$('#end-turn').disabled=selected.size!==2;}
+ else{$('#selection-hint').textContent=selected.size?`已选 ${selected.size} 张手牌`:'点选手牌可重铸';$('#end-turn').innerHTML='结束回合 <span>交由隔壁掌柜行动</span>';}
+ $('#craft-hint').textContent=effectBusy?'兵器正在结算':game.phase==='overflow'?'先弃掉超限手牌':game.actor===1?'对方回合':player.crafted?'本回合已制造':'每回合可造1次';
  $('#reforge-note').textContent=player.reforged?'本回合换牌机会已用完':`选 1 张其他手牌，换取「${CARDS[target].name}」`;
  const ready=RECIPES.filter(r=>planCraft(player.hand,r).ok);
  const exchange=!player.reforged?game.bestExchange(0):null;
@@ -95,11 +108,27 @@ function scheduleAI(){clearTimeout(timer);const version=epoch;if(game.actor!==1|
 function showRisk(){const canDiscard=game.players[0].hand.length>=2;modal(`<span class="rule-tag">炉火失控</span><h2 class="risk-heading">炸炉了！材料尽毁</h2><p>这次制造已经失败，制造机会与材料均已消耗。你可以承担 1 点声望损失，或弃置 2 张剩余手牌止损。</p><div class="modal-actions"><button class="secondary-button" id="take-hit">承担损失 · 声望 −1</button><button class="primary-button" id="choose-discard" ${canDiscard?'':'disabled'}>弃 2 张手牌</button></div>${!canDiscard?'<p>剩余手牌不足 2 张，无法弃牌止损。</p>':''}`);
  $('#take-hit').onclick=()=>{game.resolveRisk('damage');selected.clear();closeModal();render();};$('#choose-discard').onclick=()=>{discardRisk=true;selected.clear();closeModal();render();};}
 function showEnd(){modal(`<span class="rule-tag">比试落定 · 第 ${game.round} 轮</span><div class="outcome-mark">${game.winner===0?'胜':game.winner===1?'惜败':'平'}</div><h2>${game.winner===0?'百炼成兵，技高一筹':game.winner===1?'炉火未熄，来日再战':'两座工坊，旗鼓相当'}</h2><p>你的声望 ${game.players[0].hp} · 隔壁工坊声望 ${game.players[1].hp}。材料的取舍与开炉的时机，决定每一次交锋。</p><div class="modal-actions"><button class="secondary-button" id="view-board">查看对局</button><button class="primary-button" id="play-again">再开一炉</button></div>`);$('#view-board').onclick=closeModal;$('#play-again').onclick=reset;}
-function reset(){epoch++;clearTimeout(timer);clearBattleEffects();selected.clear();discardRisk=false;shownEnd=false;lastEvent=null;$('#exchange-target').value='scrap';closeModal();game.reset();render();notify('新一轮比试开始，你先行动。');}
+function reset(){epoch++;clearTimeout(timer);clearBattleEffects();selected.clear();discardRisk=false;shownEnd=false;lastEvent=null;inspectedRecipeId=null;$('#exchange-target').value='scrap';closeModal();game.reset();render();notify('新一轮比试开始，你先行动。');}
 $('#hand').onclick=e=>{const card=e.target.closest('[data-card]');if(!card||card.disabled)return;const id=Number(card.dataset.card);if(selected.has(id))selected.delete(id);else selected.add(id);render();};
 $('#recipes').onclick=e=>{const button=e.target.closest('[data-craft]');if(!button||button.disabled||effectBusy)return;const result=game.craft(0,button.dataset.craft);if(result.ok){selected.clear();render();}};
+$('#recipe-tabs').onclick=e=>{const button=e.target.closest('[data-inspect]');if(!button||!RECIPES.some(r=>r.id===button.dataset.inspect))return;inspectedRecipeId=button.dataset.inspect;recipes();};
+$('#recipe-detail-view').onclick=()=>{
+ const recipe=RECIPES.find(r=>r.id===inspectedRecipeId)||RECIPES[0],plan=planCraft(game.players[0].hand,recipe);
+ const needs=recipe.needs.map(key=>{const missing=plan.missing.includes(key);return `<span class="ingredient ${missing?'missing':'have'}">${CARDS[key].name} · ${missing?'缺少':'可用'}</span>`;}).join('');
+ modal(`<div class="dialog-heading"><h2>${recipe.name}配方</h2><button class="text-button" id="close-recipe-detail">关闭</button></div><p>${recipe.desc}</p><p>伤害 ${plan.ok?plan.damage:recipe.damage} · ${recipe.risk?'炸炉概率 30%':'无炸炉风险'}</p><div class="detail-ingredients">${needs}</div><p>绿色为可用项，红色为缺少项。缺工序时，可使用本回合重铸机会换取。</p>`);
+ $('#close-recipe-detail').onclick=closeModal;
+};
+$('#logs-toggle').onclick=()=>{
+ modal(`<div class="dialog-heading"><h2>对局记录</h2><button class="text-button" id="close-journal">关闭</button></div><div class="dialog-journal">${game.logs.map(message=>`<p>${message}</p>`).join('')}</div>`);
+ $('#close-journal').onclick=closeModal;
+};
+$('#context-help').onclick=()=>{
+ const card=game.players[0].hand.find(c=>selected.has(c.id));
+ modal(`<div class="dialog-heading"><h2>${card?CARDS[card.key].name:'本回合提示'}</h2><button class="text-button" id="close-context">关闭</button></div>${card?`<p>${typeNames[CARDS[card.key].type]}牌 · ${CARDS[card.key].note}</p>`:''}<p>${$('#turn-tip').textContent}</p>`);
+ $('#close-context').onclick=closeModal;
+};
 $('#exchange-target').onchange=render;
-$('#reforge').onclick=()=>{if(effectBusy)return;const target=$('#exchange-target').value;if(game.reforge(0,[...selected][0],target)){selected.clear();render();notify(`重铸完成，换得「${CARDS[target].name}」。`);}};
+$('#reforge').onclick=()=>{if(effectBusy)return;const target=$('#exchange-target').value;if(game.reforge(0,[...selected][0],target)){selected.clear();const ready=RECIPES.filter(r=>planCraft(game.players[0].hand,r).ok);if(ready.length&&!ready.some(r=>r.id===inspectedRecipeId))inspectedRecipeId=ready[0].id;render();notify(`重铸完成，换得「${CARDS[target].name}」。`);}};
 $('#end-turn').onclick=()=>{if(effectBusy)return;if(game.phase==='overflow'){if(game.trim(0,[...selected]))selected.clear();render();return;}if(discardRisk){if(game.resolveRisk('discard',[...selected])){discardRisk=false;selected.clear();}render();return;}if(game.endTurn(0)){selected.clear();render();scheduleAI();}};
 $('#restart').onclick=()=>{modal('<span class="rule-tag">重新开炉</span><h2>重新开始这场比试？</h2><p>当前对局进度将被清除，双方重新获得 20 点声望。</p><div class="modal-actions"><button class="secondary-button" id="cancel-restart">继续对局</button><button class="primary-button" id="confirm-restart">重新开局</button></div>');$('#cancel-restart').onclick=closeModal;$('#confirm-restart').onclick=reset;};
 $('#rules').onclick=()=>{modal(`<span class="rule-tag">工坊手札 · 调整版</span><h2>以材造兵，以兵制胜</h2><p>你正与隔壁工坊掌柜比试。筹集材料、完成工序，先将对方的 20 点声望打至 0，即可获胜。</p><ul><li>双方起手各 5 张。自己的回合开始抽 2 张，超过 7 张时自行选择弃牌。</li><li>配方常驻工坊。每回合最多制造一次，成功后立即攻击，兵器随即消耗。</li><li>每回合可重铸一次：选一张手牌，指定换成「边角料」「熬胶缠筋」「冶铁钻孔」或「配比火药」，不占制造机会。同名牌不能互换；边角料也可以换成工序。</li><li>四种换取目标共用每回合一次机会。每次都是弃 1 张、换 1 张，手牌数量不变。</li><li>每次制造最多使用一张边角料，替代一种材料，伤害 −1；不能替代工序。</li><li>火器制造有 30% 概率炸炉，失去材料与制造机会；随后扣自己 1 点声望，或弃 2 张手牌免伤。</li><li>AI 遵守同样规则，也会主动换取所缺工序；弃牌时优先保留完整配方。对方手牌内容隐藏。</li></ul><p><b>本版默认：</b>公共牌库为 46 张，抽空后将弃牌洗回。通过重铸换得的边角料与工序均为临时牌，使用或弃置后移除。第 12 轮起，行动方每回合开始损失 1 点声望，避免僵局。</p><p>地雷配方为「铁＋硝石＋草木灰＋配比火药」，伤害 4，炸炉率 30%，制造成功后立即引爆。配方中的所有材料与工序均会消耗。</p><div class="modal-actions"><button class="primary-button" id="close-rules">明白了，继续比试</button></div>`);$('#close-rules').onclick=closeModal;};

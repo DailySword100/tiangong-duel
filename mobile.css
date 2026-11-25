@@ -1,0 +1,73 @@
+/* A fixed game board on phones; details open without leaving the board. */
+.mobile-label,.mobile-recipe-tabs,.make-label-compact{display:none}
+.forge-tools{display:flex;align-items:center;gap:10px;min-width:0}
+.turn-tip-row{display:flex;align-items:center;gap:8px;min-width:0}.turn-tip-row .turn-tip{flex:1;min-width:0}
+.dialog-heading{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f5efdf;padding:4px 0 12px;border-bottom:1px solid var(--line)}
+.dialog-heading h2{font-size:24px;margin:0}.dialog-heading button{flex-shrink:0;min-width:44px;min-height:40px}
+.detail-ingredients{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.detail-ingredients .ingredient{font-size:14px;padding:6px 9px}
+.dialog-journal p{font-size:14px;line-height:1.8;margin:0;padding:12px 0;border-bottom:1px solid var(--line)}
+
+@media(max-width:900px),(max-width:1200px) and (pointer:coarse){
+ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+ .game-shell{height:100vh;height:100dvh;max-width:none;width:100%;margin:0;padding:max(6px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));display:grid;grid-template-rows:44px minmax(0,1fr);gap:6px;overflow:hidden}
+ .masthead{height:auto;min-height:0;padding:0;border:0;gap:8px;overflow:hidden}
+ .brand{gap:8px;min-width:0}.brand .seal{width:27px;height:32px;min-width:27px;font-size:14px;border-width:2px}.brand h1{font-size:18px;line-height:1.1;letter-spacing:1px;white-space:nowrap}.brand h1 span{display:block;font-size:10px;line-height:1.2;letter-spacing:3px;padding:0;margin:4px 0 0;border:0}.brand p{display:none}
+ .header-actions{gap:10px;flex-shrink:0}.header-actions .edition{display:none}.header-actions .text-button{font-size:12px;min-height:36px;padding:4px 0;white-space:nowrap}.desktop-label{display:none}.mobile-label{display:inline}.forge-tools .mobile-label{display:block}
+ .game-shell>main{display:grid;grid-template-rows:82px minmax(0,1fr);gap:6px;min-width:0;min-height:0;overflow:hidden}
+ .arena{margin:0;min-height:0;height:auto;padding:8px 13px;grid-template-columns:minmax(0,1fr) 112px minmax(0,1fr);gap:6px;align-items:center}.arena:after{inset:4px}.landscape:before,.landscape:after{height:85px;opacity:.1}
+ .arena .workshop{min-width:0}.arena .workshop>.eyebrow,.arena .workshop>p{display:none}.arena .workshop h2{font-size:15px;line-height:1.2;letter-spacing:1px;margin:0;white-space:nowrap}.arena .reputation{margin-top:3px;gap:4px;align-items:baseline}.arena .reputation strong{font-size:28px;line-height:1}.arena .reputation span{font-size:10px;white-space:nowrap}.arena .health-track{height:3px;margin-top:4px}
+ .arena .enemy-hand{display:block;min-height:10px;margin-top:3px;font-size:10px;line-height:1.2;color:#bdc9bd}.arena .enemy-hand .card-back{display:none}.arena .enemy-hand:after{content:attr(data-count-label)}
+ .duel-center{min-width:0;gap:3px}.duel-mark,#turn-subtitle{display:none}.round-label{font-size:10px;letter-spacing:0;line-height:1.2;white-space:nowrap}#turn-status{font-size:12px;line-height:1.25;letter-spacing:0;text-align:center}.deck-state{margin-top:1px;font-size:10px;gap:6px;white-space:nowrap;flex-wrap:nowrap;line-height:1.2}.deck-state b{margin-left:2px}.deck-state i{display:none}
+ .play-layout{display:block;min-width:0;min-height:0;height:100%;margin:0;padding:0}.play-main{display:grid;grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);gap:8px;min-width:0;min-height:0;height:100%}
+ .journal,.page-footer{display:none}
+ .forge-section{display:grid;grid-template-rows:22px 62px minmax(0,1fr);gap:4px;min-width:0;min-height:0;overflow:hidden}
+ .section-heading{height:auto;min-height:0;align-items:center;gap:8px;margin:0}.section-heading .eyebrow{display:none}.section-heading h2{font:700 16px/1.2 'Microsoft YaHei','PingFang SC',sans-serif;letter-spacing:0;margin:0;white-space:nowrap}.section-heading .section-hint{font-size:11px;line-height:1.2;max-width:none;white-space:nowrap}
+ .forge-tools{gap:10px}.forge-tools .text-button{font-size:12px;padding:2px 0;color:#7c6040;border-bottom:1px solid #b8a47e;min-height:22px}
+ .mobile-recipe-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;min-width:0;min-height:0}
+ .recipe-tab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;padding:4px 2px;border:1px solid #c8bfaa;border-radius:2px;background:#faf6ec;color:#4d554b;box-shadow:0 1px 2px #4235200c}
+ .recipe-tab strong{font-size:14px;line-height:1.15;letter-spacing:0;white-space:nowrap}.recipe-tab>span{font-size:10px;line-height:1.1}.recipe-tab b{font:700 17px/1 Georgia,serif;color:#a74532}.recipe-tab small{font-size:10px;line-height:1.1;color:#8b7963}.recipe-tab.is-ready{border-color:#8d9f7b;background:#eef2e7}.recipe-tab.is-ready small{color:#385d40;font-weight:700}.recipe-tab.is-active{border:2px solid #294c49;padding:3px 1px;box-shadow:inset 0 -3px 0 #294c49}.recipe-tab:focus-visible{outline:2px solid #b28a4a;outline-offset:-2px}
+ .recipe-grid{display:block;min-width:0;min-height:0;height:100%;overflow:hidden}
+ .recipe-grid .recipe{display:none;min-height:0;height:100%;margin:0;padding:7px 8px;border-color:#c2b496}
+ .recipe-grid .recipe.is-inspected{display:grid;grid-template-columns:44px minmax(0,1fr) 86px;grid-template-rows:23px minmax(0,1fr);grid-template-areas:'art stats action' 'art needs action';gap:3px 8px;align-items:center}
+ .recipe-grid .recipe .weapon-kind,.recipe-grid .recipe h3{display:none}
+ .recipe-grid .recipe .weapon-art{grid-area:art;width:44px;height:48px;margin:0;align-self:center}.recipe-grid .recipe .weapon-art svg{width:44px;height:44px}
+ .recipe-grid .recipe .weapon-stats{grid-area:stats;display:flex;gap:10px;align-items:center;flex-wrap:nowrap;margin:0;font-size:12px;white-space:nowrap}.recipe-grid .recipe .weapon-stats b{font-size:21px}.recipe-grid .recipe .risk-label,.recipe-grid .recipe .safe-label{font-size:11px}
+ .recipe-grid .recipe .ingredients{grid-area:needs;display:flex;flex-wrap:wrap;align-content:center;align-items:center;min-height:0;margin:0;gap:3px;overflow:hidden;max-height:100%}.recipe-grid .recipe .ingredient{font-size:12px;line-height:1.2;padding:2px 4px;letter-spacing:0}
+ .recipe-grid .recipe .make-button{grid-area:action;min-width:0;min-height:44px;height:100%;width:100%;align-self:stretch;margin:0;padding:5px 3px;font-size:14px;line-height:1.4;letter-spacing:0}
+ .make-label-full{display:none}.make-label-compact{display:inline}
+ .hand-section{display:grid;grid-template-rows:22px minmax(0,1fr) 46px 28px;gap:4px;min-height:0;min-width:0;margin:0;overflow:hidden}
+ .hand-section h2 span{font-size:12px;margin-left:5px}.hand-section .section-heading .section-hint{flex:1;min-width:0;text-align:right;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+ .hand{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-flow:row;gap:5px;min-height:0;height:100%;width:100%;margin:0;padding:2px;overflow:hidden;align-items:stretch}
+ .hand[data-hand-size='9']{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .hand .hand-group{display:contents}.hand .hand-group.is-empty,.hand .hand-group-heading,.hand .hand-group-empty{display:none}.hand .hand-group-cards{display:contents;overflow:visible;padding:0;margin:0;min-height:0}
+ .hand .hand-group .hand-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;min-width:0;width:100%;max-width:none;min-height:0;height:100%;margin:0;padding:4px 3px;border:1px solid var(--card-edge);border-left:4px solid var(--card-ink);border-radius:2px;box-shadow:0 1px 2px #26372b15;transform:none;overflow:hidden}
+ .hand .hand-group .hand-card:before{inset:3px;border-color:var(--card-edge);opacity:.2}.hand .hand-group .hand-card .card-type{font-size:10px;line-height:1.1;min-width:0;max-width:100%;padding:2px 5px;letter-spacing:0;white-space:nowrap}.hand .hand-group .hand-card .card-symbol,.hand .hand-group .hand-card .card-desc{display:none}.hand .hand-group .hand-card .card-name{font-size:14px;line-height:1.2;letter-spacing:0;white-space:nowrap;max-width:100%}
+ .hand[data-hand-size='9'] .hand-group .hand-card .card-name{font-size:12px}
+ .hand .hand-group .hand-card.selected{border:2px solid var(--card-ink);border-left-width:4px;outline:2px solid var(--card-ink);outline-offset:-2px;box-shadow:inset 0 0 0 2px #fff9;transform:none;background:var(--card-tag)}
+ .hand .hand-group .hand-card:hover:not(:disabled){transform:none}.hand .hand-group .card-selected{right:1px;top:1px;display:grid;place-items:center;width:14px;height:14px;padding:0;font-size:0;box-shadow:none}.hand .hand-group .card-selected:before{content:'✓';font-size:11px;line-height:1}
+ .hand>.empty-hand{display:grid;place-items:center;grid-column:1/-1;grid-row:1/-1;font-size:14px;padding:10px;margin:0;height:100%;min-height:0}
+ .action-bar{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:7px;align-items:stretch;min-height:0;height:100%;margin:0;padding:0;border:0}
+ .action-bar .reforge-control{display:block;min-width:0;min-height:0;margin:0;padding:0}.action-bar .reforge-choices{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:6px;align-items:stretch;height:100%;min-width:0}
+ .action-bar .exchange-label{display:flex;gap:4px;min-width:0;font-size:12px;white-space:nowrap}.action-bar .exchange-label select{flex:1;min-width:0;width:100%;max-width:100%;min-height:40px;height:100%;padding:7px 23px 7px 6px;background-position:right 6px center;font-size:12px}
+ .action-bar #reforge{min-width:0;width:100%;height:100%;padding:4px;font-size:12px;line-height:1.2;letter-spacing:0}.action-bar #reforge span{display:block;margin:3px 0 0;font-size:10px;line-height:1}.action-bar #reforge-note{display:none}
+ #end-turn{height:100%;min-height:40px;width:100%;min-width:0;margin:0;padding:7px 4px;font-size:14px;line-height:1.2;letter-spacing:0;box-shadow:none}#end-turn span{display:none}
+ .turn-tip-row{min-height:0;gap:5px;height:100%;overflow:hidden}.turn-tip-row .turn-tip{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:100%;font-size:11px;line-height:1.25;letter-spacing:0;margin:0;padding:0;color:#59604f}.turn-tip-row #context-help{display:block;flex-shrink:0;min-width:34px;height:100%;padding:0;font-size:12px;color:#795a32;line-height:1.2}
+ dialog{max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overscroll-behavior:contain}
+ #toast{bottom:max(12px,env(safe-area-inset-bottom));padding:10px 16px;font-size:13px;width:max-content;max-width:calc(100vw - 24px)}
+}
+
+@media(max-width:900px) and (max-height:620px){
+ .game-shell{grid-template-rows:38px minmax(0,1fr);gap:5px}.game-shell>main{grid-template-rows:72px minmax(0,1fr);gap:5px}.arena{padding:6px 10px}.arena .workshop h2{font-size:14px}.arena .reputation strong{font-size:25px}.play-main{gap:5px}.forge-section{grid-template-rows:20px 54px minmax(0,1fr);gap:3px}.section-heading h2{font-size:15px}.recipe-tab{gap:0}.recipe-tab strong{font-size:13px}.recipe-tab b{font-size:15px}.recipe-grid .recipe.is-inspected{padding:5px 6px;grid-template-columns:36px minmax(0,1fr) 76px;gap:2px 6px;grid-template-rows:21px minmax(0,1fr)}.recipe-grid .recipe .weapon-art,.recipe-grid .recipe .weapon-art svg{width:36px;height:36px}.recipe-grid .recipe .ingredient{font-size:11px;padding:2px 3px}.recipe-grid .recipe .weapon-stats{font-size:11px;gap:6px}.recipe-grid .recipe .weapon-stats b{font-size:18px}.recipe-grid .recipe .make-button{font-size:13px}.hand-section{grid-template-rows:20px minmax(0,1fr) 42px 24px;gap:3px}.hand .hand-group .hand-card{gap:2px;padding:3px 2px}.hand .hand-group .hand-card .card-type{font-size:10px;padding:1px 3px}.hand .hand-group .hand-card .card-name{font-size:13px}.hand[data-hand-size='9'] .hand-group .hand-card .card-name{font-size:12px}
+}
+@media(max-width:599px) and (max-height:520px){
+ .game-shell{grid-template-rows:34px minmax(0,1fr);gap:4px;padding-top:4px;padding-bottom:max(4px,env(safe-area-inset-bottom))}.game-shell>main{grid-template-rows:60px minmax(0,1fr);gap:4px}.brand .seal{height:27px;width:24px;min-width:24px;font-size:12px}.brand h1{font-size:16px}.brand h1 span{font-size:9px;margin-top:2px}.arena{padding:4px 9px}.arena .reputation strong{font-size:23px}.arena .workshop h2{font-size:13px}.arena .enemy-hand{font-size:9px}.play-main{gap:4px}.forge-section{grid-template-rows:20px 48px minmax(0,1fr);gap:3px}.recipe-tab small{font-size:9px}.recipe-grid .recipe.is-inspected{grid-template-rows:1fr;grid-template-areas:'art stats action'}.recipe-grid .recipe .ingredients{display:none}.hand-section{grid-template-rows:20px minmax(0,1fr) 40px;gap:3px}.turn-tip-row{display:none}.forge-tools #craft-hint{display:none}.hand .hand-group .hand-card .card-type{font-size:9px}.hand .hand-group .hand-card .card-name{font-size:12px}
+}
+@media(min-width:600px) and (max-width:900px) and (max-height:520px),(min-width:901px) and (max-width:1200px) and (pointer:coarse) and (max-height:520px){
+ .game-shell{grid-template-rows:34px minmax(0,1fr);gap:4px}.game-shell>main{grid-template-rows:64px minmax(0,1fr);gap:5px}.play-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:10px}.forge-section{grid-template-rows:20px 53px minmax(0,1fr)}.hand-section{grid-template-rows:20px minmax(0,1fr) 40px 24px}.arena{grid-template-columns:minmax(0,1fr) 180px minmax(0,1fr);padding:4px 15px}.arena .workshop h2{font-size:14px}.arena .reputation{display:inline-flex;margin-top:2px}.arena .enemy-hand{display:inline-block;margin-left:8px}.arena .reputation strong{font-size:24px}.arena .health-track{margin-top:2px}.brand h1 span{display:inline;margin-left:8px}.brand .seal{height:27px}.recipe-grid .recipe.is-inspected{grid-template-columns:38px minmax(0,1fr) 78px}
+}
+@media(min-width:600px) and (max-width:900px) and (max-height:400px){
+ .hand-section{grid-template-rows:20px minmax(0,1fr) 40px;gap:3px}.turn-tip-row{display:none}
+}
+@media(max-width:900px) and (min-height:720px){
+ .hand .hand-group .hand-card .card-symbol{display:grid;place-items:center;font-size:24px;line-height:1;width:32px;height:25px;margin:0;border:0}.hand[data-hand-size='9'] .hand-group .hand-card .card-symbol{display:none}
+}
