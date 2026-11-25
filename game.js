@@ -14,6 +14,7 @@ export const RECIPES = [
 ];
 export const DECK_COUNTS={bamboo:5,tendon:4,mulberry:4,iron:5,nitrate:3,sulphur:3,ash:2,glue:3,drill:3,powder:4,scrap:10};
 export const EXCHANGE_TARGETS=['scrap','glue','drill','powder'];
+export const MAX_REPUTATION=10;
 const MAX_HAND=7;
 export function planCraft(hand, recipe){
  const used=[], missing=[]; let wildUsed=false;
@@ -30,7 +31,7 @@ export class Game {
  shuffle(cards){for(let i=cards.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];}return cards;}
  reset(){
   this.deck=this.shuffle(Object.entries(DECK_COUNTS).flatMap(([key,count])=>Array.from({length:count},()=>this.card(key))));
-  this.discard=[];this.players=[{hp:20,hand:[],crafted:false,reforged:false},{hp:20,hand:[],crafted:false,reforged:false}];
+  this.discard=[];this.players=Array.from({length:2},()=>({hp:MAX_REPUTATION,hand:[],crafted:false,reforged:false}));
   this.turn=0;this.actor=0;this.phase='setup';this.winner=null;this.pending=null;this.logs=[];this.event=null;
   for(let i=0;i<5;i++)for(let p=0;p<2;p++)this.draw(p,1);
   this.log('两座工坊开炉，比试开始。');this.startTurn(0);
@@ -100,7 +101,7 @@ export class Game {
  recipeValue(p,hand,recipe){
   const plan=planCraft(hand,recipe);if(!plan.ok)return -Infinity;
   const lethal=plan.damage>=this.players[1-p].hp;
-  const safety=this.players[p].hp<=10&&!recipe.risk?12:0;
+  const safety=this.players[p].hp<=MAX_REPUTATION/2&&!recipe.risk?12:0;
   return (lethal?100:0)+plan.damage*(1-recipe.risk)*10+safety-recipe.needs.length;
  }
  bestExchange(p,hand=this.players[p].hand){
@@ -143,13 +144,13 @@ export class Game {
   const hp=this.players[p].hp;
   const lethal=options.filter(r=>planCraft(this.players[p].hand,r).damage>=this.players[1-p].hp).sort((a,b)=>a.risk-b.risk);if(lethal.length)return lethal[0];
   const cold=options.filter(r=>!r.risk),hot=options.filter(r=>r.risk);
-  const pool=hp>10&&hot.length&&this.random()<.7?hot:cold.length?cold:options;
+  const pool=hp>MAX_REPUTATION/2&&hot.length&&this.random()<.7?hot:cold.length?cold:options;
   return pool.sort((a,b)=>planCraft(this.players[p].hand,b).damage-planCraft(this.players[p].hand,a).damage)[0];
  }
  aiStep(){
   if(this.actor!==1||this.phase==='over')return 'done';
   if(this.phase==='ai-overflow'){this.trim(1,this.chooseDiscards(1,this.players[1].hand.length-MAX_HAND));return 'trim';}
-  if(this.phase==='risk'){const hand=this.players[1].hand;if(this.players[1].hp<=5&&hand.length>=2)this.resolveRisk('discard',this.chooseDiscards(1,2));else this.resolveRisk('damage');return 'risk';}
+  if(this.phase==='risk'){const hand=this.players[1].hand;if(this.players[1].hp<=Math.ceil(MAX_REPUTATION/4)&&hand.length>=2)this.resolveRisk('discard',this.chooseDiscards(1,2));else this.resolveRisk('damage');return 'risk';}
   if(this.phase!=='ai')return 'done';
   const player=this.players[1];if(player.crafted){this.endTurn(1);return 'end';}
   let recipe=this.chooseRecipe(1);

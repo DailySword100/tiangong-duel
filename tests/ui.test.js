@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {Game,CARDS,RECIPES,planCraft} from '../game.js';
+import {Game,CARDS,RECIPES,planCraft,MAX_REPUTATION} from '../game.js';
 import {createBattleEffect} from '../effects.js';
+import {cardIllustration} from '../card-art.js';
 
 function interfaceFixture(keys=['mulberry','iron','scrap','bamboo','scrap','mulberry','iron'],phase='player'){
  const elements=new Map(),timers=new Map();let nextTimer=1;
@@ -22,7 +23,7 @@ function interfaceFixture(keys=['mulberry','iron','scrap','bamboo','scrap','mulb
   constructor(){super({random:()=>.9});this.players[0].hand=keys.map(k=>this.card(k));this.phase=phase;game=this;}
  }
  const source=readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
- vm.runInNewContext(source,{Game:FixtureGame,CARDS,RECIPES,planCraft,createBattleEffect,document:{querySelector:element},setTimeout(callback,delay){const id=nextTimer++;timers.set(id,{callback,delay});return id;},clearTimeout(id){timers.delete(id);}});
+ vm.runInNewContext(source,{Game:FixtureGame,CARDS,RECIPES,planCraft,MAX_REPUTATION,createBattleEffect,cardIllustration,document:{querySelector:element},setTimeout(callback,delay){const id=nextTimer++;timers.set(id,{callback,delay});return id;},clearTimeout(id){timers.delete(id);}});
  return {game,element,timers,
   runTimer(delay){const entry=[...timers].find(([,timer])=>timer.delay===delay);assert.ok(entry,`missing timer ${delay}`);timers.delete(entry[0]);entry[1].callback();},
   selectCard(id){element('#hand').onclick({target:{closest(){return{disabled:false,dataset:{card:String(id)}};}}});},
@@ -43,7 +44,7 @@ test('actual UI names the missing process and enables selected scrap-to-process 
  assert.match(element('#recipes').innerHTML,/data-craft="crossbow"[^>]*><span class="make-label-full">开炉制造/);
  assert.match(element('#toast').textContent,/冶铁钻孔/);
  element('#recipes').onclick({target:{closest(){return{disabled:false,dataset:{craft:'crossbow'}};}}});
- assert.equal(game.players[1].hp,17);assert.equal(element('#enemy-hp').textContent,17);
+ assert.equal(game.players[1].hp,7);assert.equal(element('#enemy-hp').textContent,7);
  assert.match(element('#logs').innerHTML,/造成3点伤害/);
 });
 test('selecting the same exchange target stays disabled and rules explain the shared allowance',()=>{
@@ -56,8 +57,8 @@ test('selecting the same exchange target stays disabled and rules explain the sh
 test('HTML includes all exchange targets and versioned assets',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  for(const key of ['scrap','glue','drill','powder'])assert.ok(html.includes(`value="${key}"`));
- assert.match(html,/for="exchange-target"/);assert.match(html,/style\.css\?v=20261125-4/);assert.match(html,/app\.js\?v=20261125-4/);
- assert.match(html,/polish\.css\?v=20261125-4/);assert.match(html,/mobile\.css\?v=20261125-4/);
+ assert.match(html,/for="exchange-target"/);assert.match(html,/style\.css\?v=20261125-5/);assert.match(html,/app\.js\?v=20261125-5/);
+ assert.match(html,/polish\.css\?v=20261125-5/);assert.match(html,/mobile\.css\?v=20261125-5/);assert.match(html,/cards\.css\?v=20261125-5/);
  assert.equal((html.match(/id="battle-fx"/g)||[]).length,1);
 });
 
@@ -72,7 +73,7 @@ test('hand groups preserve all card identities and clearly mark missing processe
 });
 test('outgoing attack plays once, blocks turn changes until impact completes, then releases controls',()=>{
  const ui=interfaceFixture(['bamboo','tendon','glue']);const {game,element}=ui;
- ui.craft('bow');assert.equal(game.players[1].hp,18);assert.match(element('#battle-fx').className,/fx-bow from-player/);
+ ui.craft('bow');assert.equal(game.players[1].hp,8);assert.match(element('#battle-fx').className,/fx-bow from-player/);
  assert.equal(element('#end-turn').disabled,true);const turn=game.turn;
  element('#end-turn').onclick();assert.equal(game.turn,turn);
  const markup=element('#battle-fx').innerHTML;assert.match(markup,/对方声望 −2/);
@@ -85,7 +86,7 @@ test('incoming AI damage targets the player and waits for the effect before endi
  const ui=interfaceFixture(['bamboo']);const {game,element}=ui;
  element('#end-turn').onclick();assert.equal(game.actor,1);
  game.players[1].hand=['bamboo','tendon','glue'].map(k=>game.card(k));
- ui.runTimer(850);assert.equal(game.players[0].hp,18);
+ ui.runTimer(850);assert.equal(game.players[0].hp,8);
  assert.match(element('#battle-fx').className,/from-enemy/);assert.match(element('#battle-announcement').textContent,/你的声望 −2/);
  ui.runTimer(510);assert.ok(element('.player-workshop').classList.contains('is-hit'));
  ui.runTimer(1350);assert.equal(game.actor,1);
@@ -95,9 +96,9 @@ test('explosion finishes before the loss-choice dialog opens',()=>{
  const ui=interfaceFixture(['iron','nitrate','sulphur','powder','bamboo','tendon']);const {game,element}=ui;
  game.random=()=>0;ui.craft('musket');assert.equal(game.phase,'risk');
  assert.match(element('#battle-fx').className,/fx-explosion/);assert.equal(element('#modal').open,false);
- assert.equal(game.players[0].hp,20);ui.runTimer(1650);assert.equal(element('#modal').open,true);
+ assert.equal(game.players[0].hp,10);ui.runTimer(1650);assert.equal(element('#modal').open,true);
  assert.match(element('#modal-content').innerHTML,/弃 2 张手牌/);
- element('#take-hit').onclick();assert.equal(game.players[0].hp,19);assert.equal(element('#modal').open,false);
+ element('#take-hit').onclick();assert.equal(game.players[0].hp,9);assert.equal(element('#modal').open,false);
 });
 test('victory waits for the final impact; restart cancels old visual callbacks',()=>{
  const ui=interfaceFixture(['bamboo','tendon','glue']);const {game,element}=ui;
@@ -142,4 +143,21 @@ test('journal and selected-card explanations open and close without consuming ac
  const card=game.players[0].hand[0];ui.selectCard(card.id);element('#context-help').onclick();
  assert.match(element('#modal-content').innerHTML,new RegExp(CARDS[card.key].name));
  element('#close-context').onclick();assert.equal(element('#modal').open,false);assert.equal(game.players[0].reforged,false);assert.equal(game.turn,1);
+});
+
+test('ten-point reputation bars and visible rules use the same maximum',()=>{
+ const ui=interfaceFixture(['bamboo','tendon','glue']),{element}=ui;
+ assert.equal(element('#player-hp').textContent,10);assert.equal(element('#player-bar').style.width,'100%');
+ ui.craft('bow');assert.equal(element('#enemy-bar').style.width,'80%');
+ element('#rules').onclick();assert.match(element('#modal-content').innerHTML,/10 点声望/);
+ element('#restart').onclick();assert.match(element('#modal-content').innerHTML,/10 点声望/);
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');assert.equal((html.match(/\/ 10 声望/g)||[]).length,2);
+});
+
+test('each hand card combines a corresponding illustration, a readable name and a category',()=>{
+ const keys=Object.keys(CARDS);const {element}=interfaceFixture(keys);
+ const html=element('#hand').innerHTML;
+ for(const key of keys){assert.ok(html.includes(`data-item="${key}"`));assert.ok(html.includes(CARDS[key].name));}
+ assert.equal((html.match(/class="card-item-art"/g)||[]).length,keys.length);
+ assert.equal(html.includes('class="card-symbol"'),false);
 });

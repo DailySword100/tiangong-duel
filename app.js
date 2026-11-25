@@ -1,5 +1,6 @@
-import {Game,CARDS,RECIPES,planCraft} from './game.js?v=20261125-4';
-import {createBattleEffect} from './effects.js?v=20261125-4';
+import {Game,CARDS,RECIPES,planCraft,MAX_REPUTATION} from './game.js?v=20261125-5';
+import {createBattleEffect} from './effects.js?v=20261125-5';
+import {cardIllustration} from './card-art.js?v=20261125-5';
 const $=s=>document.querySelector(s);const game=new Game();let selected=new Set(),timer=null,toastTimer=null,epoch=0,lastEvent=null,discardRisk=false,shownEnd=false;
 let effectBusy=false,activeEffect=null,effectTimers=[];
 let inspectedRecipeId=null;
@@ -20,7 +21,7 @@ function handMarkup(player,selecting){
  if(!player.hand.length)return '<div class="empty-hand">库房暂空，下一回合再筹良材。</div>';
  return handGroups.map(group=>{
   const cards=player.hand.filter(c=>CARDS[c.key].type===group.type);
-  const cardHtml=cards.map(c=>{const data=CARDS[c.key],isSelected=selected.has(c.id);return `<button class="hand-card ${data.type} ${isSelected?'selected':''}" data-card="${c.id}" aria-label="${data.name}，${typeNames[data.type]}，${data.note}" aria-pressed="${isSelected}" ${selecting?'':'disabled'}><span class="card-type">${typeNames[data.type]}牌</span><span class="card-symbol" aria-hidden="true">${data.mark}</span><strong class="card-name">${data.name}</strong><span class="card-desc">${data.note}</span>${isSelected?'<span class="card-selected" aria-hidden="true">✓ 已选</span>':''}</button>`;}).join('');
+  const cardHtml=cards.map(c=>{const data=CARDS[c.key],isSelected=selected.has(c.id);return `<button class="hand-card ${data.type} ${isSelected?'selected':''}" data-card="${c.id}" data-item="${c.key}" aria-label="${data.name}，${typeNames[data.type]}，${data.note}" aria-pressed="${isSelected}" ${selecting?'':'disabled'}><span class="card-type">${typeNames[data.type]}牌</span><span class="card-art" aria-hidden="true">${cardIllustration(c.key)}</span><strong class="card-name">${data.name}</strong><span class="card-desc">${data.note}</span>${isSelected?'<span class="card-selected" aria-hidden="true">✓ 已选</span>':''}</button>`;}).join('');
   return `<section class="hand-group ${group.type} ${cards.length?'':'is-empty'}" data-hand-group="${group.type}" aria-label="${group.title}，${cards.length}张" style="--group-count:${Math.max(1,cards.length)}"><div class="hand-group-heading"><h3>${group.title}<b>${cards.length}</b></h3><span>${group.note}</span></div><div class="hand-group-cards">${cardHtml||`<p class="hand-group-empty">${group.empty}</p>`}</div></section>`;
  }).join('');
 }
@@ -46,8 +47,8 @@ function render(){
  const player=game.players[0],ai=game.players[1];selected=new Set([...selected].filter(id=>player.hand.some(c=>c.id===id)));
  for(const [id,p] of [['player',player],['enemy',ai]]){
   const previous=Number($(`#${id}-hp`).textContent);
-  if(Number.isFinite(previous)&&previous>p.hp){$(`.${id}-workshop`).style.setProperty('--hp-before',`${previous*5}%`);$(`.${id}-workshop`).style.setProperty('--hp-after',`${p.hp*5}%`);}
-  $(`#${id}-hp`).textContent=p.hp;$(`#${id}-bar`).style.width=`${p.hp/20*100}%`;
+  if(Number.isFinite(previous)&&previous>p.hp){$(`.${id}-workshop`).style.setProperty('--hp-before',`${previous/MAX_REPUTATION*100}%`);$(`.${id}-workshop`).style.setProperty('--hp-after',`${p.hp/MAX_REPUTATION*100}%`);}
+  $(`#${id}-hp`).textContent=p.hp;$(`#${id}-bar`).style.width=`${p.hp/MAX_REPUTATION*100}%`;
  }
  animateEvent();
  $('#round').textContent=`第 ${game.round} 轮${game.round>=12?' · 炉火衰竭':''}`;$('#deck-count').textContent=game.deck.length;$('#discard-count').textContent=game.discard.length;
@@ -130,7 +131,7 @@ $('#context-help').onclick=()=>{
 $('#exchange-target').onchange=render;
 $('#reforge').onclick=()=>{if(effectBusy)return;const target=$('#exchange-target').value;if(game.reforge(0,[...selected][0],target)){selected.clear();const ready=RECIPES.filter(r=>planCraft(game.players[0].hand,r).ok);if(ready.length&&!ready.some(r=>r.id===inspectedRecipeId))inspectedRecipeId=ready[0].id;render();notify(`重铸完成，换得「${CARDS[target].name}」。`);}};
 $('#end-turn').onclick=()=>{if(effectBusy)return;if(game.phase==='overflow'){if(game.trim(0,[...selected]))selected.clear();render();return;}if(discardRisk){if(game.resolveRisk('discard',[...selected])){discardRisk=false;selected.clear();}render();return;}if(game.endTurn(0)){selected.clear();render();scheduleAI();}};
-$('#restart').onclick=()=>{modal('<span class="rule-tag">重新开炉</span><h2>重新开始这场比试？</h2><p>当前对局进度将被清除，双方重新获得 20 点声望。</p><div class="modal-actions"><button class="secondary-button" id="cancel-restart">继续对局</button><button class="primary-button" id="confirm-restart">重新开局</button></div>');$('#cancel-restart').onclick=closeModal;$('#confirm-restart').onclick=reset;};
-$('#rules').onclick=()=>{modal(`<span class="rule-tag">工坊手札 · 调整版</span><h2>以材造兵，以兵制胜</h2><p>你正与隔壁工坊掌柜比试。筹集材料、完成工序，先将对方的 20 点声望打至 0，即可获胜。</p><ul><li>双方起手各 5 张。自己的回合开始抽 2 张，超过 7 张时自行选择弃牌。</li><li>配方常驻工坊。每回合最多制造一次，成功后立即攻击，兵器随即消耗。</li><li>每回合可重铸一次：选一张手牌，指定换成「边角料」「熬胶缠筋」「冶铁钻孔」或「配比火药」，不占制造机会。同名牌不能互换；边角料也可以换成工序。</li><li>四种换取目标共用每回合一次机会。每次都是弃 1 张、换 1 张，手牌数量不变。</li><li>每次制造最多使用一张边角料，替代一种材料，伤害 −1；不能替代工序。</li><li>火器制造有 30% 概率炸炉，失去材料与制造机会；随后扣自己 1 点声望，或弃 2 张手牌免伤。</li><li>AI 遵守同样规则，也会主动换取所缺工序；弃牌时优先保留完整配方。对方手牌内容隐藏。</li></ul><p><b>本版默认：</b>公共牌库为 46 张，抽空后将弃牌洗回。通过重铸换得的边角料与工序均为临时牌，使用或弃置后移除。第 12 轮起，行动方每回合开始损失 1 点声望，避免僵局。</p><p>地雷配方为「铁＋硝石＋草木灰＋配比火药」，伤害 4，炸炉率 30%，制造成功后立即引爆。配方中的所有材料与工序均会消耗。</p><div class="modal-actions"><button class="primary-button" id="close-rules">明白了，继续比试</button></div>`);$('#close-rules').onclick=closeModal;};
+$('#restart').onclick=()=>{modal('<span class="rule-tag">重新开炉</span><h2>重新开始这场比试？</h2><p>当前对局进度将被清除，双方重新获得 10 点声望。</p><div class="modal-actions"><button class="secondary-button" id="cancel-restart">继续对局</button><button class="primary-button" id="confirm-restart">重新开局</button></div>');$('#cancel-restart').onclick=closeModal;$('#confirm-restart').onclick=reset;};
+$('#rules').onclick=()=>{modal(`<span class="rule-tag">工坊手札 · 调整版</span><h2>以材造兵，以兵制胜</h2><p>你正与隔壁工坊掌柜比试。筹集材料、完成工序，先将对方的 ${MAX_REPUTATION} 点声望打至 0，即可获胜。</p><ul><li>双方起手各 5 张。自己的回合开始抽 2 张，超过 7 张时自行选择弃牌。</li><li>配方常驻工坊。每回合最多制造一次，成功后立即攻击，兵器随即消耗。</li><li>每回合可重铸一次：选一张手牌，指定换成「边角料」「熬胶缠筋」「冶铁钻孔」或「配比火药」，不占制造机会。同名牌不能互换；边角料也可以换成工序。</li><li>四种换取目标共用每回合一次机会。每次都是弃 1 张、换 1 张，手牌数量不变。</li><li>每次制造最多使用一张边角料，替代一种材料，伤害 −1；不能替代工序。</li><li>火器制造有 30% 概率炸炉，失去材料与制造机会；随后扣自己 1 点声望，或弃 2 张手牌免伤。</li><li>AI 遵守同样规则，也会主动换取所缺工序；弃牌时优先保留完整配方。对方手牌内容隐藏。</li></ul><p><b>本版默认：</b>公共牌库为 46 张，抽空后将弃牌洗回。通过重铸换得的边角料与工序均为临时牌，使用或弃置后移除。第 12 轮起，行动方每回合开始损失 1 点声望，避免僵局。</p><p>地雷配方为「铁＋硝石＋草木灰＋配比火药」，伤害 4，炸炉率 30%，制造成功后立即引爆。配方中的所有材料与工序均会消耗。</p><div class="modal-actions"><button class="primary-button" id="close-rules">明白了，继续比试</button></div>`);$('#close-rules').onclick=closeModal;};
 $('#modal').addEventListener('cancel',e=>{if(game.phase==='risk'&&game.actor===0&&!discardRisk)e.preventDefault();});
 render();

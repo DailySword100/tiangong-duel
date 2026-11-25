@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Game,CARDS,RECIPES,DECK_COUNTS,EXCHANGE_TARGETS,planCraft} from '../game.js';
+import {Game,CARDS,RECIPES,DECK_COUNTS,EXCHANGE_TARGETS,planCraft,MAX_REPUTATION} from '../game.js';
 
 function fixture(keys,p=0){
  const game=new Game({random:()=>.9});
@@ -12,6 +12,7 @@ function seeded(seed){return()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)
 test('opening deck and confirmed turn rules stay intact',()=>{
  const g=new Game();assert.equal(Object.values(DECK_COUNTS).reduce((a,b)=>a+b),46);
  assert.equal(g.players[0].hand.length,7);assert.equal(g.players[1].hand.length,5);assert.equal(g.deck.length,34);
+ assert.equal(MAX_REPUTATION,10);assert.deepEqual(g.players.map(p=>p.hp),[10,10]);
 });
 test('screenshot hand can trade a scrap for the missing drill process and attack',()=>{
  const g=fixture(['mulberry','iron','scrap','bamboo','scrap','mulberry','iron']);
@@ -19,7 +20,7 @@ test('screenshot hand can trade a scrap for the missing drill process and attack
  const id=g.players[0].hand.find(c=>c.key==='scrap').id;
  assert.ok(g.reforge(0,id,'drill'));assert.equal(g.players[0].hand.length,7);
  assert.ok(g.players[0].hand.find(c=>c.key==='drill').virtual);
- assert.ok(g.craft(0,'crossbow').ok);assert.equal(g.players[1].hp,17);
+ assert.ok(g.craft(0,'crossbow').ok);assert.equal(g.players[1].hp,MAX_REPUTATION-3);
 });
 test('all four exchange targets share one per-turn allowance',()=>{
  for(const target of EXCHANGE_TARGETS){
@@ -55,19 +56,19 @@ test('scrap cannot replace a process or two materials',()=>{
 test('new exchange consumes no manufacturing allowance; crafting still limited to once',()=>{
  const g=fixture(['bamboo','tendon','iron','bamboo','tendon','glue']);
  g.reforge(0,g.players[0].hand[2].id,'glue');assert.equal(g.players[0].crafted,false);
- assert.ok(g.craft(0,'bow').ok);assert.equal(g.craft(0,'bow').ok,false);assert.equal(g.players[1].hp,18);
+ assert.ok(g.craft(0,'bow').ok);assert.equal(g.craft(0,'bow').ok,false);assert.equal(g.players[1].hp,MAX_REPUTATION-2);
 });
 test('AI keeps a complete recipe in the reported nine-card regression',()=>{
  const g=fixture(['scrap','tendon','scrap','iron','powder','powder','glue','ash','mulberry'],1);
  g.phase='ai-overflow';assert.equal(g.aiStep(),'trim');assert.equal(g.players[1].hand.length,7);
  assert.ok(RECIPES.some(r=>planCraft(g.players[1].hand,r).ok));
- assert.equal(g.aiStep(),'craft');assert.ok(g.players[0].hp<20);
+ assert.equal(g.aiStep(),'craft');assert.ok(g.players[0].hp<MAX_REPUTATION);
 });
 test('AI actively exchanges for a missing process using the same player rule',()=>{
  const g=fixture(['mulberry','iron','scrap','bamboo','scrap','mulberry','iron'],1);
  assert.equal(g.aiStep(),'reforge');assert.equal(g.players[1].reforged,true);
  assert.equal(g.players[1].hand.length,7);assert.ok(g.players[1].hand.some(c=>c.key==='drill'));
- assert.equal(g.aiStep(),'craft');assert.equal(g.players[0].hp,17);
+ assert.equal(g.aiStep(),'craft');assert.equal(g.players[0].hp,MAX_REPUTATION-3);
  assert.equal(g.aiStep(),'end');assert.equal(g.actor,0);
 });
 test('AI does not waste exchanges when none can enable a recipe',()=>{
@@ -80,7 +81,7 @@ test('explosion consumes the opportunity and supports both loss choices',()=>{
   g.reforge(0,g.players[0].hand.find(c=>c.key==='scrap').id,'powder');g.random=()=>0;
   assert.ok(g.craft(0,'musket').exploded);assert.equal(g.phase,'risk');assert.equal(g.players[0].crafted,true);
   assert.equal(g.endTurn(0),false);assert.ok(g.resolveRisk(choice,g.players[0].hand.map(c=>c.id)));
-  assert.equal(g.players[0].hp,choice==='damage'?19:20);assert.equal(g.players[1].hp,20);
+  assert.equal(g.players[0].hp,choice==='damage'?MAX_REPUTATION-1:MAX_REPUTATION);assert.equal(g.players[1].hp,MAX_REPUTATION);
  }
 });
 test('only exact overflow card choices proceed; lethal attacks end immediately',()=>{
@@ -121,4 +122,13 @@ test('100 full matches finish; AI attacks and every manufactured hand obeys limi
   assert.equal(g.phase,'over',`unfinished match ${seed}`);assert.ok(g.round<40);assert.ok(steps<1500);
  }
  assert.ok(hits/turns>.35,`AI attack rate unexpectedly low: ${hits}/${turns}`);
+});
+
+test('restarting restores both workshops to ten reputation',()=>{
+ const g=fixture(['bamboo','tendon','glue']);g.players[0].hp=1;g.players[1].hp=0;g.phase='over';g.reset();
+ assert.deepEqual(g.players.map(p=>p.hp),[10,10]);assert.equal(g.phase,'player');
+});
+test('AI still considers fire tools at full health and switches to safe choices below half health',()=>{
+ const g=fixture(['bamboo','tendon','glue','iron','nitrate','sulphur','powder'],1);g.random=()=>.1;
+ assert.equal(g.chooseRecipe(1).id,'musket');g.players[1].hp=4;assert.equal(g.chooseRecipe(1).id,'bow');
 });
