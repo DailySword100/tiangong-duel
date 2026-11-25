@@ -13,6 +13,7 @@ export const RECIPES = [
  {id:'mine',name:'地雷',kind:'火器',damage:4,risk:.3,needs:['iron','nitrate','ash','powder'],desc:'伏火藏雷，制造后立即引爆。'}
 ];
 export const DECK_COUNTS={bamboo:5,tendon:4,mulberry:4,iron:5,nitrate:3,sulphur:3,ash:2,glue:3,drill:3,powder:4,scrap:10};
+export const EXCHANGE_TARGETS=['scrap','glue','drill','powder'];
 const MAX_HAND=7;
 export function planCraft(hand, recipe){
  const used=[], missing=[]; let wildUsed=false;
@@ -59,11 +60,12 @@ export class Game {
   this.dispose(player.hand.filter(c=>unique.includes(c.id)));player.hand=player.hand.filter(c=>!unique.includes(c.id));
   this.phase=p===0?'player':'ai';this.log(`${this.name(p)}弃置${needed}张溢出手牌。`);return true;
  }
- reforge(p,id){
+ reforge(p,id,target='scrap'){
   const player=this.players[p];if(!this.canAct(p)||player.reforged)return false;
-  const index=player.hand.findIndex(c=>c.id===id&&c.key!=='scrap');if(index<0)return false;
-  const [card]=player.hand.splice(index,1);this.dispose([card]);player.hand.push(this.card('scrap',true));player.reforged=true;
-  this.log(`${this.name(p)}重铸「${CARDS[card.key].name}」，获得边角料。`);return true;
+  if(!EXCHANGE_TARGETS.includes(target))return false;
+  const index=player.hand.findIndex(c=>c.id===id&&c.key!==target);if(index<0)return false;
+  const [card]=player.hand.splice(index,1);this.dispose([card]);player.hand.push(this.card(target,true));player.reforged=true;
+  this.log(`${this.name(p)}重铸「${CARDS[card.key].name}」，换得「${CARDS[target].name}」。`);return true;
  }
  craft(p,recipeId){
   const player=this.players[p], recipe=RECIPES.find(r=>r.id===recipeId);
@@ -95,6 +97,47 @@ export class Game {
   value+=Math.max(0,...useful)*3;return value-(duplicates-1)*1.5;
  }
  weakest(p,count=1,excludeScrap=false){const hand=this.players[p].hand;return [...hand].filter(c=>!excludeScrap||c.key!=='scrap').sort((a,b)=>this.cardValue(a,hand)-this.cardValue(b,hand)).slice(0,count).map(c=>c.id);}
+ recipeValue(p,hand,recipe){
+  const plan=planCraft(hand,recipe);if(!plan.ok)return -Infinity;
+  const lethal=plan.damage>=this.players[1-p].hp;
+  const safety=this.players[p].hp<=10&&!recipe.risk?12:0;
+  return (lethal?100:0)+plan.damage*(1-recipe.risk)*10+safety-recipe.needs.length;
+ }
+ bestExchange(p,hand=this.players[p].hand){
+  let best=null;
+  for(const card of hand)for(const target of EXCHANGE_TARGETS){
+   if(card.key===target)continue;
+   const trial=hand.map(c=>c.id===card.id?{...c,key:target}:c);
+   for(const recipe of RECIPES){
+    const value=this.recipeValue(p,trial,recipe);if(!Number.isFinite(value))continue;
+    const score=value+this.cardValue(card,hand)*-.01;
+    if(!best||score>best.score)best={id:card.id,target,recipeId:recipe.id,score};
+   }
+  }
+  return best;
+ }
+ preservationScore(p,hand){
+  const ready=RECIPES.map(r=>this.recipeValue(p,hand,r)).filter(Number.isFinite);
+  // Complete recipes always outrank hands that need another exchange or draw.
+  if(ready.length)return 10000+Math.max(...ready)+ready.length*.1;
+  if(!this.players[p].reforged){const exchange=this.bestExchange(p,hand);if(exchange)return 1000+exchange.score;}
+  const progress=Math.max(0,...RECIPES.map(r=>{
+   const plan=planCraft(hand,r);return (r.needs.length-plan.missing.length)/r.needs.length*100+plan.damage;
+  }));
+  return progress+hand.reduce((sum,c)=>sum+this.cardValue(c,hand),0)*.01;
+ }
+ chooseDiscards(p,count){
+  const hand=this.players[p].hand;if(count<=0)return [];if(count>=hand.length)return hand.map(c=>c.id);
+  let best=null;const keepCount=hand.length-count;
+  const visit=(start,kept)=>{
+   if(kept.length===keepCount){
+    const score=this.preservationScore(p,kept);
+    if(!best||score>best.score)best={score,ids:new Set(kept.map(c=>c.id))};return;
+   }
+   for(let i=start;i<=hand.length-(keepCount-kept.length);i++)visit(i+1,[...kept,hand[i]]);
+  };
+  visit(0,[]);return hand.filter(c=>!best.ids.has(c.id)).map(c=>c.id);
+ }
  chooseRecipe(p){
   const options=RECIPES.filter(r=>planCraft(this.players[p].hand,r).ok);if(!options.length)return null;
   const hp=this.players[p].hp;
@@ -105,18 +148,14 @@ export class Game {
  }
  aiStep(){
   if(this.actor!==1||this.phase==='over')return 'done';
-  if(this.phase==='ai-overflow'){this.trim(1,this.weakest(1,this.players[1].hand.length-MAX_HAND));return 'trim';}
-  if(this.phase==='risk'){const hand=this.players[1].hand;if(this.players[1].hp<=5&&hand.length>=2)this.resolveRisk('discard',this.weakest(1,2));else this.resolveRisk('damage');return 'risk';}
+  if(this.phase==='ai-overflow'){this.trim(1,this.chooseDiscards(1,this.players[1].hand.length-MAX_HAND));return 'trim';}
+  if(this.phase==='risk'){const hand=this.players[1].hand;if(this.players[1].hp<=5&&hand.length>=2)this.resolveRisk('discard',this.chooseDiscards(1,2));else this.resolveRisk('damage');return 'risk';}
   if(this.phase!=='ai')return 'done';
   const player=this.players[1];if(player.crafted){this.endTurn(1);return 'end';}
   let recipe=this.chooseRecipe(1);
   if(!recipe&&!player.reforged){
-   let best=null;
-   for(const card of player.hand.filter(c=>c.key!=='scrap')){
-    const trial=player.hand.map(c=>c.id===card.id?{...c,key:'scrap'}:c);
-    for(const r of RECIPES){const plan=planCraft(trial,r);if(plan.ok&&(!best||plan.damage>best.damage))best={id:card.id,damage:plan.damage};}
-   }
-   const id=best?.id??this.weakest(1,1,true)[0];if(id){this.reforge(1,id);return 'reforge';}
+   const exchange=this.bestExchange(1);
+   if(exchange){this.reforge(1,exchange.id,exchange.target);return 'reforge';}
   }
   recipe=this.chooseRecipe(1);if(recipe){this.craft(1,recipe.id);return 'craft';}
   this.log('隔壁掌柜收拢材料，等待下次开炉。');this.endTurn(1);return 'end';
